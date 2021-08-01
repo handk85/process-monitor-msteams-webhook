@@ -24,3 +24,4 @@ You need to specify Webhook url and the process ids (i.e., PIDs) in the file.
 > python3 monitor.py # Run the monitor script
 # Press Ctrl+A d to detach the screen session
 ```
+* If you want to modify `pids` in `settings.ini`, you don't need to stop the monitor. The monitor will automatically recognize the updated `pids` in config.

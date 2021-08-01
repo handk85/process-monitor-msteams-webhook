@@ -42,7 +42,9 @@ pid_info = load_process_info(pids)
 
 def check_settings():
     global configured_pids
+    global pid_info
     global pids
+
     config.read(CONFIG_FILE)
     new_pids = ast.literal_eval(config["DETAILS"]["pids"])
     for pid in new_pids:
@@ -50,7 +52,7 @@ def check_settings():
             logging.info("PID %s has been added", pid)
             pids.append(pid)
             configured_pids.append(pid)
-            load_process_info(pids)
+            pid_info = load_process_info(pids)
 
 
 def update_monitor_table():
