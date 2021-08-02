@@ -1,4 +1,5 @@
 from webhook import send_webhook
+from datetime import datetime
 import configparser
 import logging
 import psutil
@@ -16,58 +17,63 @@ config = configparser.ConfigParser()
 config.read(CONFIG_FILE)
 
 # You need to add process IDs to monitoring
-configured_pids = ast.literal_eval(config["DETAILS"]["pids"])
-logging.info("Start monitoring PIDs: %s", configured_pids)
-pids = list(configured_pids)
+initial_pids = ast.literal_eval(config["DETAILS"]["pids"])
+logging.info("Start monitoring PIDs: %s", initial_pids)
 
 NOTIFICATION_TITLE = "The process is terminated"
 NOTIFICATION_SUBTITLE = "The process is terminated"
+HOST = socket.gethostname()
 
 
-def load_process_info(pids: list):
-    pid_cmdlines = {}
-    for pid in pids[:]:
-        if not psutil.pid_exists(pid):
-            logging.warning("PID %s does not exist. It will be excluded", pid)
-            pids.remove(pid)
-            continue
+class ProcessInfo:
+    def __init__(self, pid: int, cmdline: str, start_time: str, host: str):
+        self.pid = pid
+        self.cmdline = cmdline
+        self.start_time = start_time
+        self.host = host
 
-        p = psutil.Process(pid)
-        pid_cmdlines[pid] = " ".join(p.cmdline())
-    return pid_cmdlines
-
-
-pid_info = load_process_info(pids)
+    def get_facts(self):
+        return {"Process ID": self.pid, "Command": self.cmdline,
+                "Host": self.host, "Started": self.start_time}
 
 
-def check_settings():
-    global configured_pids
-    global pid_info
-    global pids
+def convert_create_time(create_time: float):
+    d = datetime.fromtimestamp(create_time)
+    return d.strftime("%Y-%m-%d %H:%M:%S")
 
+
+def load_process_info(pid: int):
+    if not psutil.pid_exists(pid):
+        logging.warning("PID %s does not exist. It will be excluded", pid)
+        return
+    p = psutil.Process(pid)
+    return ProcessInfo(pid, " ".join(p.cmdline()), convert_create_time(p.create_time()), HOST)
+
+
+def check_settings(pid_info: dict, terminated_pids: list):
     config.read(CONFIG_FILE)
     new_pids = ast.literal_eval(config["DETAILS"]["pids"])
     for pid in new_pids:
-        if pid not in configured_pids:
-            logging.info("PID %s has been added", pid)
-            pids.append(pid)
-            configured_pids.append(pid)
-            pid_info = load_process_info(pids)
+        if pid not in pid_info and pid not in terminated_pids:
+            pid_info[pid] = load_process_info(pid)
 
 
-def update_monitor_table():
-    global pids
-    check_settings()
-    logging.info("Checking pids: %s", pids)
-    for pid in pids[:]:
+def update_monitor_table(pid_info: dict, terminated_pids: list):
+    check_settings(pid_info, terminated_pids)
+    logging.info("Checking pids: %s", list(pid_info.keys()))
+    for pid in list(pid_info.keys()):
         if not psutil.pid_exists(pid):
             logging.info("PID %s has been terminated", pid)
-            facts = {"Process ID": pid, "Process Command": pid_info[pid], "Host": socket.gethostname()}
-            send_webhook(NOTIFICATION_TITLE, NOTIFICATION_SUBTITLE, facts)
-            pids.remove(pid)
+            info = pid_info.pop(pid)
+            send_webhook(NOTIFICATION_TITLE, NOTIFICATION_SUBTITLE, info.get_facts())
+            terminated_pids.append(pid)
 
 
-schedule.every(10).seconds.do(update_monitor_table)
+info = {pid: load_process_info(pid) for pid in initial_pids}
+[info.pop(i) for i in list(info.keys()) if info[i] is None]
+terminated = [pid for pid in initial_pids if pid not in info]
+
+schedule.every(10).seconds.do(update_monitor_table, info, terminated)
 while True:
     schedule.run_pending()
     time.sleep(1)
