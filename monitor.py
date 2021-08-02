@@ -64,8 +64,8 @@ def update_monitor_table(pid_info: dict, terminated_pids: list):
     for pid in list(pid_info.keys()):
         if not psutil.pid_exists(pid):
             logging.info("PID %s has been terminated", pid)
-            info = pid_info.pop(pid)
-            send_webhook(NOTIFICATION_TITLE, NOTIFICATION_SUBTITLE, info.get_facts())
+            process_info = pid_info.pop(pid)
+            send_webhook(NOTIFICATION_TITLE, NOTIFICATION_SUBTITLE, process_info.get_facts())
             terminated_pids.append(pid)
 
 
