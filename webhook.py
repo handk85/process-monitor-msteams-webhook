@@ -1,13 +1,7 @@
 from datetime import datetime
-import configparser
 import requests
-import sys
-
-config = configparser.ConfigParser()
-config.read("settings.ini")
 
 header = {"Content-Type": "application/json"}
-WEBHOOK_URL=config["DETAILS"]["base_url"]
 JSON_TEMPLATE = '''{
     "@type": "MessageCard",
     "@context": "http://schema.org/extensions",
@@ -30,10 +24,6 @@ def generate_payload(title: str, subtitle: str = "", facts: dict = {}):
     return JSON_TEMPLATE % (title, title, subtitle, str(formatted_facts))
 
 
-def send_webhook(title: str, subtitle: str = "", facts: dict = {}):
+def send_webhook(url: str, title: str, subtitle: str = "", facts: dict = {}):
     content = generate_payload(title, subtitle, facts)
-    requests.post(WEBHOOK_URL, data=content, headers=header)
-
-
-if __name__ == "__main__":
-    send_webhook(sys.argv[1])
+    requests.post(url, data=content, headers=header)

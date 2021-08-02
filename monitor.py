@@ -22,6 +22,7 @@ logging.info("Start monitoring PIDs: %s", initial_pids)
 
 NOTIFICATION_TITLE = "The process is terminated"
 NOTIFICATION_SUBTITLE = "The process is terminated"
+WEBHOOK_URL = config["DETAILS"]["webhook_url"]
 HOST = socket.gethostname()
 
 
@@ -65,7 +66,7 @@ def update_monitor_table(pid_info: dict, terminated_pids: list):
         if not psutil.pid_exists(pid):
             logging.info("PID %s has been terminated", pid)
             process_info = pid_info.pop(pid)
-            send_webhook(NOTIFICATION_TITLE, NOTIFICATION_SUBTITLE, process_info.get_facts())
+            send_webhook(WEBHOOK_URL, NOTIFICATION_TITLE, NOTIFICATION_SUBTITLE, process_info.get_facts())
             terminated_pids.append(pid)
 
 
